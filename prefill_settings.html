@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预输入规则设置</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+        .form-container { background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; display: flex; align-items: center; }
+        .form-group label { font-weight: bold; width: 150px; }
+        .form-group input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        #rulesList table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #rulesList th, #rulesList td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #rulesList .delete-btn { background-color: #f44336; }
+        #rulesList .delete-btn:hover { background-color: #da190b; }
+    </style>
+</head>
+<body>
+    <h1>预输入规则设置</h1>
+    <div class="form-container">
+        <h2>添加新规则</h2>
+        <div class="form-group">
+            <label for="triggerName">姓名 (触发词):</label>
+            <input type="text" id="triggerName" placeholder="例如: liu">
+        </div>
+        <div class="form-group">
+            <label for="mediaOrg">自动填充媒体机构:</label>
+            <input type="text" id="mediaOrg" placeholder="例如: CGTN">
+        </div>
+        <div class="form-group">
+            <label for="countryRegion">自动填充国家/地区:</label>
+            <input type="text" id="countryRegion" placeholder="例如: China">
+        </div>
+        <button onclick="saveRule()">保存规则</button>
+    </div>
+
+    <h2>当前规则</h2>
+    <div id="rulesList"></div>
+
+    <script>
+        const rulesKey = 'prefillRules';
+
+        // 保存规则
+        function saveRule() {
+            const triggerName = document.getElementById('triggerName').value.trim();
+            const media = document.getElementById('mediaOrg').value.trim();
+            const country = document.getElementById('countryRegion').value.trim();
+
+            if (!triggerName || !media || !country) {
+                alert('所有字段均为必填项。');
+                return;
+            }
+
+            let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+            // 检查是否存在相同的触发词
+            const existingRuleIndex = rules.findIndex(rule => rule.triggerName.toLowerCase() === triggerName.toLowerCase());
+            
+            if (existingRuleIndex > -1) {
+                // 更新现有规则
+                rules[existingRuleIndex] = { triggerName, media, country };
+            } else {
+                // 添加新规则
+                rules.push({ triggerName, media, country });
+            }
+
+            localStorage.setItem(rulesKey, JSON.stringify(rules));
+            
+            // 清空输入框并重新加载列表
+            document.getElementById('triggerName').value = '';
+            document.getElementById('mediaOrg').value = '';
+            document.getElementById('countryRegion').value = '';
+            loadRules();
+        }
+
+        // 删除规则
+        function deleteRule(index) {
+            if (confirm('确定要删除这条规则吗？')) {
+                let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+                rules.splice(index, 1);
+                localStorage.setItem(rulesKey, JSON.stringify(rules));
+                loadRules();
+            }
+        }
+
+        // 加载并显示规则
+        function loadRules() {
+            const rulesListDiv = document.getElementById('rulesList');
+            const rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+
+            if (rules.length === 0) {
+                rulesListDiv.innerHTML = '<p>尚未设置任何规则。</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <tr>
+                        <th>姓名 (触发词)</th>
+                        <th>媒体机构</th>
+                        <th>国家/地区</th>
+                        <th>操作</th>
+                    </tr>`;
+            
+            rules.forEach((rule, index) => {
+                tableHTML += `
+                    <tr>
+                        <td>${rule.triggerName}</td>
+                        <td>${rule.media}</td>
+                        <td>${rule.country}</td>
+                        <td><button class="delete-btn" onclick="deleteRule(${index})">删除</button></td>
+                    </tr>`;
+            });
+
+            tableHTML += '</table>';
+            rulesListDiv.innerHTML = tableHTML;
+        }
+        
+        // 页面加载时显示已有规则
+        window.onload = loadRules;
+    </script>
+</body>
+</html>
