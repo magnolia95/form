@@ -26,7 +26,11 @@
     <h1 id="formTitle">Media Guest Check-in Form</h1>
     
     <form id="contactForm">
-        <div class="form-group"> <label for="name" id="nameLabel">Name</label> <input type="text" id="name" name="name" required> </div>
+        <div class="form-group">
+            <label for="name" id="nameLabel">Name</label>
+            <input type="text" id="name" name="name" required list="name-suggestions">
+            <datalist id="name-suggestions"></datalist>
+            </div>
         <div class="form-group"> <label for="email" id="emailLabel">Email</label> <input type="email" id="email" name="email" required> </div>
         <div class="form-group"> <label for="phone" id="phoneLabel">Phone Number</label> <input type="tel" id="phone" name="phone"> </div>
         <div class="form-group"> <label for="media" id="mediaLabel">Media Organization</label> <input type="text" id="media" name="media" required> </div>
@@ -93,30 +97,50 @@
             });
         });
 
-        // ==================== 修改后的自动填充逻辑 START ====================
+        // ==================== 最终版：带建议列表的填充逻辑 START ====================
         const nameInput = document.getElementById('name');
         const mediaInput = document.getElementById('media');
         const countryInput = document.getElementById('country');
+        const suggestionsDatalist = document.getElementById('name-suggestions');
         const rulesKey = 'prefillRules';
         
-        // 从localStorage加载规则
         const prefillRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
 
         nameInput.addEventListener('input', function() {
-            const currentName = nameInput.value.toLowerCase();
-            const foundRule = prefillRules.find(rule => rule.triggerName.toLowerCase() === currentName);
+            const currentName = this.value.toLowerCase().trim();
             
-            if (foundRule) {
-                // 如果找到匹配的规则，则填充
-                mediaInput.value = foundRule.media;
-                countryInput.value = foundRule.country;
-            } else {
-                // 如果没有匹配的规则，可以考虑清空（如果需要）
-                // mediaInput.value = '';
-                // countryInput.value = '';
+            // 每次输入都先清空旧的建议和填充
+            suggestionsDatalist.innerHTML = '';
+            mediaInput.value = '';
+            countryInput.value = '';
+
+            if (currentName.length === 0) {
+                return; // 如果输入框为空，则不进行任何操作
+            }
+
+            // 步骤1: 查找所有部分匹配的规则，生成建议列表
+            const matchingRules = prefillRules.filter(rule => 
+                rule.triggerName.toLowerCase().includes(currentName)
+            );
+
+            matchingRules.forEach(rule => {
+                const option = document.createElement('option');
+                option.value = rule.triggerName;
+                suggestionsDatalist.appendChild(option);
+            });
+
+            // 步骤2: 检查是否存在一个精确匹配的规则（通常在用户从建议列表中选择后发生）
+            const exactMatchRule = prefillRules.find(rule => 
+                rule.triggerName.toLowerCase() === currentName
+            );
+
+            if (exactMatchRule) {
+                // 如果有精确匹配，则填充表单
+                mediaInput.value = exactMatchRule.media;
+                countryInput.value = exactMatchRule.country;
             }
         });
-        // ==================== 修改后的自动填充逻辑 END ======================
+        // ==================== 最终版：带建议列表的填充逻辑 END ======================
 
         // 页面加载后默认设置为英文
         window.onload = function() {

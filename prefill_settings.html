@@ -7,22 +7,40 @@
     <style>
         body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; }
         h1, h2 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
-        .form-container { background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .container { background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; display: flex; align-items: center; }
         .form-group label { font-weight: bold; width: 150px; }
         .form-group input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
         button:hover { background-color: #45a049; }
+        textarea { width: 100%; min-height: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         #rulesList table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         #rulesList th, #rulesList td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        #rulesList .delete-btn { background-color: #f44336; }
+        #rulesList .delete-btn { background-color: #f44336; padding: 5px 10px; font-size: 14px; }
         #rulesList .delete-btn:hover { background-color: #da190b; }
+        .import-options { margin: 10px 0; }
     </style>
 </head>
 <body>
     <h1>预输入规则设置</h1>
-    <div class="form-container">
-        <h2>添加新规则</h2>
+
+    <div class="container">
+        <h2>从 Excel 批量导入</h2>
+        <p>请从电子表格中复制三列（姓名, 媒体机构, 国家/地区），然后粘贴到下面的文本框中。</p>
+        <textarea id="bulkData" placeholder="例如:
+liu	CGTN	China
+wang	Xinhua	China
+chen	CCTV	USA"></textarea>
+        <div class="import-options">
+            <input type="radio" id="replace" name="importMode" value="replace" checked>
+            <label for="replace">替换所有现有规则</label>
+            <input type="radio" id="append" name="importMode" value="append" style="margin-left: 20px;">
+            <label for="append">添加到现有规则之后</label>
+        </div>
+        <button onclick="importRules()">导入规则</button>
+    </div>
+    <div class="container">
+        <h2>手动添加单条规则</h2>
         <div class="form-group">
             <label for="triggerName">姓名 (触发词):</label>
             <input type="text" id="triggerName" placeholder="例如: liu">
@@ -35,16 +53,64 @@
             <label for="countryRegion">自动填充国家/地区:</label>
             <input type="text" id="countryRegion" placeholder="例如: China">
         </div>
-        <button onclick="saveRule()">保存规则</button>
+        <button onclick="saveRule()">保存单条规则</button>
     </div>
 
-    <h2>当前规则</h2>
+    <h2>当前规则列表</h2>
     <div id="rulesList"></div>
 
     <script>
         const rulesKey = 'prefillRules';
 
-        // 保存规则
+        // 批量导入规则
+        function importRules() {
+            const bulkText = document.getElementById('bulkData').value.trim();
+            if (!bulkText) {
+                alert('请粘贴要导入的数据。');
+                return;
+            }
+
+            const lines = bulkText.split('\n');
+            const newRules = [];
+            let importedCount = 0;
+
+            lines.forEach(line => {
+                const columns = line.split('\t'); // Excel复制的内容默认以制表符分隔
+                if (columns.length === 3) {
+                    const [triggerName, media, country] = columns.map(item => item.trim());
+                    if (triggerName && media && country) {
+                        newRules.push({ triggerName, media, country });
+                        importedCount++;
+                    }
+                }
+            });
+
+            if (importedCount === 0) {
+                alert('未能解析任何有效规则。请确保格式正确（三列，以Tab分隔）。');
+                return;
+            }
+
+            const importMode = document.querySelector('input[name="importMode"]:checked').value;
+            let finalRules = [];
+
+            if (importMode === 'append') {
+                finalRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+            }
+            
+            // 合并并去重，以新导入的为准
+            const ruleMap = new Map();
+            finalRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
+            newRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
+            
+            finalRules = Array.from(ruleMap.values());
+
+            localStorage.setItem(rulesKey, JSON.stringify(finalRules));
+            alert(`成功导入/更新了 ${importedCount} 条规则！`);
+            document.getElementById('bulkData').value = '';
+            loadRules();
+        }
+
+        // 保存单条规则
         function saveRule() {
             const triggerName = document.getElementById('triggerName').value.trim();
             const media = document.getElementById('mediaOrg').value.trim();
@@ -56,20 +122,16 @@
             }
 
             let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-            // 检查是否存在相同的触发词
             const existingRuleIndex = rules.findIndex(rule => rule.triggerName.toLowerCase() === triggerName.toLowerCase());
             
             if (existingRuleIndex > -1) {
-                // 更新现有规则
                 rules[existingRuleIndex] = { triggerName, media, country };
             } else {
-                // 添加新规则
                 rules.push({ triggerName, media, country });
             }
 
             localStorage.setItem(rulesKey, JSON.stringify(rules));
             
-            // 清空输入框并重新加载列表
             document.getElementById('triggerName').value = '';
             document.getElementById('mediaOrg').value = '';
             document.getElementById('countryRegion').value = '';
