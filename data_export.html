@@ -23,7 +23,7 @@
     <div id="dataTable"><p>正在加载数据...</p></div>
     
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec";
+        const SCRIPT_URL = "在这里粘贴你的WEB应用网址";
         let collectedData = [];
 
         window.onload = function() {
@@ -34,35 +34,22 @@
             const dataDiv = document.getElementById("dataTable");
             dataDiv.innerHTML = "<p>正在加载数据...</p>";
 
-            fetch(SCRIPT_URL)
+            // 明确指定获取 'data' 类型
+            fetch(SCRIPT_URL + '?type=data')
                 .then(response => response.json())
                 .then(data => {
                     collectedData = data.reverse();
+                    if(data.status === 'error'){ throw new Error(data.message); }
                     
                     if (collectedData.length === 0) {
                         dataDiv.innerHTML = "<p>尚未收集到任何数据</p>";
                         return;
                     }
                     
-                    let tableHTML = `
-                        <table>
-                            <tr>
-                                <th>姓名</th><th>电子邮箱</th><th>电话号码</th><th>媒体机构</th><th>国家/地区</th><th>兴趣领域</th><th>提交时间</th>
-                            </tr>`;
-                    
+                    let tableHTML = `<table><tr><th>姓名</th><th>电子邮箱</th><th>电话号码</th><th>媒体机构</th><th>国家/地区</th><th>兴趣领域</th><th>提交时间</th></tr>`;
                     collectedData.forEach(entry => {
-                        tableHTML += `
-                            <tr>
-                                <td>${entry["姓名"] || "-"}</td>
-                                <td>${entry["电子邮箱"] || "-"}</td>
-                                <td>${entry["电话号码"] || "-"}</td>
-                                <td>${entry["媒体机构"] || "-"}</td>
-                                <td>${entry["国家/地区"] || "-"}</td>
-                                <td>${entry["兴趣领域"] || "-"}</td>
-                                <td>${entry["提交时间"] || "-"}</td>
-                            </tr>`;
+                        tableHTML += `<tr><td>${entry["姓名"] || "-"}</td><td>${entry["电子邮箱"] || "-"}</td><td>${entry["电话号码"] || "-"}</td><td>${entry["媒体机构"] || "-"}</td><td>${entry["国家/地区"] || "-"}</td><td>${entry["兴趣领域"] || "-"}</td><td>${entry["提交时间"] || "-"}</td></tr>`;
                     });
-                    
                     tableHTML += "</table>";
                     dataDiv.innerHTML = tableHTML;
                 })
@@ -73,45 +60,24 @@
         }
         
         function exportCSV() {
-            if (collectedData.length === 0) {
-                alert("没有数据可导出");
-                return;
-            }
-            
-            let csvContent = Object.keys(collectedData[0]).join(",") + "\n";
-            
+            if (collectedData.length === 0) { alert("没有数据可导出"); return; }
+            let csvContent = "姓名,电子邮箱,电话号码,媒体机构,国家/地区,兴趣领域,提交时间\n";
             collectedData.forEach(entry => {
-                const row = Object.values(entry).map(value => `"${String(value).replace(/"/g, '""')}"`).join(",");
+                const row = [entry["姓名"], entry["电子邮箱"], entry["电话号码"], entry["媒体机构"], entry["国家/地区"], entry["兴趣领域"], entry["提交时间"]].map(v => `"${String(v || "").replace(/"/g, '""')}"`).join(",");
                 csvContent += row + "\n";
             });
-            
             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", "媒体嘉宾签到信息_" + new Date().toISOString().slice(0,10) + ".csv");
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = "媒体嘉宾签到信息_" + new Date().toISOString().slice(0,10) + ".csv";
             link.click();
-            document.body.removeChild(link);
         }
         
         function clearData() {
             if (confirm("确定要删除所有收集的数据吗？此操作不可恢复。")) {
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'clear' })
-                })
-                .then(() => {
-                    alert("所有数据已清除");
-                    displayData();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert("清除失败，请稍后重试。");
-                });
+                fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clearData' }) })
+                    .then(() => { alert("所有数据已清除"); displayData(); })
+                    .catch(error => { alert("清除失败，请稍后重试。"); });
             }
         }
     </script>

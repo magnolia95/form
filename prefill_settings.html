@@ -3,185 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>预输入规则设置</title>
+    <title>预输入规则设置 (云同步)</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; }
         h1, h2 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
         .container { background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; display: flex; align-items: center; }
-        .form-group label { font-weight: bold; width: 150px; }
-        .form-group input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
         button:hover { background-color: #45a049; }
+        button:disabled { background-color: #ccc; }
         textarea { width: 100%; min-height: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         #rulesList table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         #rulesList th, #rulesList td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         #rulesList .delete-btn { background-color: #f44336; padding: 5px 10px; font-size: 14px; }
-        #rulesList .delete-btn:hover { background-color: #da190b; }
-        .import-options { margin: 10px 0; }
     </style>
 </head>
 <body>
-    <h1>预输入规则设置</h1>
-
+    <h1>预输入规则设置 (云同步)</h1>
     <div class="container">
         <h2>从 Excel 批量导入</h2>
-        <p>请从电子表格中复制三列（姓名, 媒体机构, 国家/地区），然后粘贴到下面的文本框中。</p>
-        <textarea id="bulkData" placeholder="例如:
-liu	CGTN	China
-wang	Xinhua	China
-chen	CCTV	USA"></textarea>
-        <div class="import-options">
-            <input type="radio" id="replace" name="importMode" value="replace" checked>
-            <label for="replace">替换所有现有规则</label>
-            <input type="radio" id="append" name="importMode" value="append" style="margin-left: 20px;">
-            <label for="append">添加到现有规则之后</label>
-        </div>
-        <button onclick="importRules()">导入规则</button>
-    </div>
-    <div class="container">
-        <h2>手动添加单条规则</h2>
-        <div class="form-group">
-            <label for="triggerName">姓名 (触发词):</label>
-            <input type="text" id="triggerName" placeholder="例如: liu">
-        </div>
-        <div class="form-group">
-            <label for="mediaOrg">自动填充媒体机构:</label>
-            <input type="text" id="mediaOrg" placeholder="例如: CGTN">
-        </div>
-        <div class="form-group">
-            <label for="countryRegion">自动填充国家/地区:</label>
-            <input type="text" id="countryRegion" placeholder="例如: China">
-        </div>
-        <button onclick="saveRule()">保存单条规则</button>
+        <p>从电子表格复制三列（姓名, 媒体机构, 国家/地区），粘贴到下方。**每次导入都会覆盖所有旧规则。**</p>
+        <textarea id="bulkData" placeholder="例如:&#10;liu	CGTN	China&#10;wang	Xinhua	China"></textarea>
+        <button id="importBtn" onclick="importRules()">导入并覆盖所有云端规则</button>
     </div>
 
-    <h2>当前规则列表</h2>
-    <div id="rulesList"></div>
+    <h2>当前云端规则列表</h2>
+    <div id="rulesList"><p>正在从云端加载规则...</p></div>
 
     <script>
-        const rulesKey = 'prefillRules';
+        const SCRIPT_URL = "在这里粘贴你的WEB应用网址";
+        let currentRules = [];
 
-        // 批量导入规则
+        // 从云端加载规则
+        function loadRules() {
+            const rulesListDiv = document.getElementById('rulesList');
+            rulesListDiv.innerHTML = '<p>正在从云端加载规则...</p>';
+            fetch(SCRIPT_URL + '?type=rules')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') throw new Error(data.message);
+                    currentRules = data.map(item => ({
+                        triggerName: item.TriggerName,
+                        media: item.Media,
+                        country: item.Country
+                    }));
+                    renderRulesTable();
+                })
+                .catch(error => {
+                    console.error('Error loading rules:', error);
+                    rulesListDiv.innerHTML = '<p style="color:red;">加载规则失败，请检查脚本URL或网络连接。</p>';
+                });
+        }
+        
+        // 渲染规则表格
+        function renderRulesTable() {
+            const rulesListDiv = document.getElementById('rulesList');
+            if (currentRules.length === 0) {
+                rulesListDiv.innerHTML = '<p>云端尚未设置任何规则。</p>';
+                return;
+            }
+            let tableHTML = `<table><tr><th>姓名 (触发词)</th><th>媒体机构</th><th>国家/地区</th><th>操作</th></tr>`;
+            currentRules.forEach((rule, index) => {
+                tableHTML += `<tr><td>${rule.triggerName}</td><td>${rule.media}</td><td>${rule.country}</td><td><button class="delete-btn" onclick="deleteRule(${index})">删除</button></td></tr>`;
+            });
+            tableHTML += '</table>';
+            rulesListDiv.innerHTML = tableHTML;
+        }
+
+        // 导入并保存规则到云端
         function importRules() {
             const bulkText = document.getElementById('bulkData').value.trim();
             if (!bulkText) {
                 alert('请粘贴要导入的数据。');
                 return;
             }
-
             const lines = bulkText.split('\n');
             const newRules = [];
-            let importedCount = 0;
-
             lines.forEach(line => {
-                const columns = line.split('\t'); // Excel复制的内容默认以制表符分隔
+                const columns = line.split('\t');
                 if (columns.length === 3) {
                     const [triggerName, media, country] = columns.map(item => item.trim());
                     if (triggerName && media && country) {
                         newRules.push({ triggerName, media, country });
-                        importedCount++;
                     }
                 }
             });
 
-            if (importedCount === 0) {
+            if (newRules.length === 0) {
                 alert('未能解析任何有效规则。请确保格式正确（三列，以Tab分隔）。');
                 return;
             }
-
-            const importMode = document.querySelector('input[name="importMode"]:checked').value;
-            let finalRules = [];
-
-            if (importMode === 'append') {
-                finalRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-            }
-            
-            // 合并并去重，以新导入的为准
-            const ruleMap = new Map();
-            finalRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
-            newRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
-            
-            finalRules = Array.from(ruleMap.values());
-
-            localStorage.setItem(rulesKey, JSON.stringify(finalRules));
-            alert(`成功导入/更新了 ${importedCount} 条规则！`);
-            document.getElementById('bulkData').value = '';
-            loadRules();
-        }
-
-        // 保存单条规则
-        function saveRule() {
-            const triggerName = document.getElementById('triggerName').value.trim();
-            const media = document.getElementById('mediaOrg').value.trim();
-            const country = document.getElementById('countryRegion').value.trim();
-
-            if (!triggerName || !media || !country) {
-                alert('所有字段均为必填项。');
-                return;
-            }
-
-            let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-            const existingRuleIndex = rules.findIndex(rule => rule.triggerName.toLowerCase() === triggerName.toLowerCase());
-            
-            if (existingRuleIndex > -1) {
-                rules[existingRuleIndex] = { triggerName, media, country };
-            } else {
-                rules.push({ triggerName, media, country });
-            }
-
-            localStorage.setItem(rulesKey, JSON.stringify(rules));
-            
-            document.getElementById('triggerName').value = '';
-            document.getElementById('mediaOrg').value = '';
-            document.getElementById('countryRegion').value = '';
-            loadRules();
-        }
-
-        // 删除规则
-        function deleteRule(index) {
-            if (confirm('确定要删除这条规则吗？')) {
-                let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-                rules.splice(index, 1);
-                localStorage.setItem(rulesKey, JSON.stringify(rules));
-                loadRules();
-            }
-        }
-
-        // 加载并显示规则
-        function loadRules() {
-            const rulesListDiv = document.getElementById('rulesList');
-            const rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-
-            if (rules.length === 0) {
-                rulesListDiv.innerHTML = '<p>尚未设置任何规则。</p>';
-                return;
-            }
-
-            let tableHTML = `
-                <table>
-                    <tr>
-                        <th>姓名 (触发词)</th>
-                        <th>媒体机构</th>
-                        <th>国家/地区</th>
-                        <th>操作</th>
-                    </tr>`;
-            
-            rules.forEach((rule, index) => {
-                tableHTML += `
-                    <tr>
-                        <td>${rule.triggerName}</td>
-                        <td>${rule.media}</td>
-                        <td>${rule.country}</td>
-                        <td><button class="delete-btn" onclick="deleteRule(${index})">删除</button></td>
-                    </tr>`;
-            });
-
-            tableHTML += '</table>';
-            rulesListDiv.innerHTML = tableHTML;
+            saveRulesToCloud(newRules);
         }
         
-        // 页面加载时显示已有规则
+        // 删除规则
+        function deleteRule(index) {
+            if (confirm('确定要从云端删除这条规则吗？')) {
+                currentRules.splice(index, 1);
+                saveRulesToCloud(currentRules);
+            }
+        }
+
+        // 将规则数组保存到云端的通用函数
+        function saveRulesToCloud(rulesToSave) {
+            const importBtn = document.getElementById('importBtn');
+            importBtn.disabled = true;
+            importBtn.textContent = '正在保存...';
+
+            const payload = {
+                action: 'saveRules',
+                rules: rulesToSave
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => {
+                alert('规则已成功保存到云端！');
+                document.getElementById('bulkData').value = '';
+                loadRules(); // 重新加载以确认
+            })
+            .catch(error => {
+                console.error('Error saving rules:', error);
+                alert('保存规则失败，请稍后重试。');
+            })
+            .finally(() => {
+                importBtn.disabled = false;
+                importBtn.textContent = '导入并覆盖所有云端规则';
+            });
+        }
+        
         window.onload = loadRules;
     </script>
 </body>
