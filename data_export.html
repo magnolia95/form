@@ -16,18 +16,15 @@
     </style>
 </head>
 <body>
-    <h1>收集的媒体记者信息</h1>
+    <h1>媒体嘉宾签到信息</h1>
     <button onclick="exportCSV()">导出为CSV</button>
     <button onclick="clearData()">清除所有数据</button>
     
     <div id="dataTable"><p>正在加载数据...</p></div>
     
     <script>
-        // ==================== 修改区域 START ====================
-        // 请将下面的网址替换为你从Google Apps Script部署后得到的Web应用网址
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec";
-        let collectedData = []; // 用于存储从服务器获取的数据
-        // ==================== 修改区域 END ======================
+        let collectedData = [];
 
         window.onload = function() {
             displayData();
@@ -37,12 +34,10 @@
             const dataDiv = document.getElementById("dataTable");
             dataDiv.innerHTML = "<p>正在加载数据...</p>";
 
-            // ==================== 修改区域 START ====================
-            // 从Google Script获取数据
             fetch(SCRIPT_URL)
                 .then(response => response.json())
                 .then(data => {
-                    collectedData = data.reverse(); //  让最新数据在最前面
+                    collectedData = data.reverse();
                     
                     if (collectedData.length === 0) {
                         dataDiv.innerHTML = "<p>尚未收集到任何数据</p>";
@@ -75,7 +70,6 @@
                     console.error("加载数据失败:", error);
                     dataDiv.innerHTML = "<p>加载数据失败，请检查脚本URL或网络连接。</p>";
                 });
-            // ==================== 修改区域 END ======================
         }
         
         function exportCSV() {
@@ -84,7 +78,6 @@
                 return;
             }
             
-            // CSV 表头，使用谷歌表格中的表头
             let csvContent = Object.keys(collectedData[0]).join(",") + "\n";
             
             collectedData.forEach(entry => {
@@ -96,7 +89,7 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", "媒体记者信息_" + new Date().toISOString().slice(0,10) + ".csv");
+            link.setAttribute("download", "媒体嘉宾签到信息_" + new Date().toISOString().slice(0,10) + ".csv");
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -104,8 +97,6 @@
         
         function clearData() {
             if (confirm("确定要删除所有收集的数据吗？此操作不可恢复。")) {
-                // ==================== 修改区域 START ====================
-                // 发送清除数据的请求
                 fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -115,13 +106,12 @@
                 })
                 .then(() => {
                     alert("所有数据已清除");
-                    displayData(); // 重新加载数据（应显示为空）
+                    displayData();
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     alert("清除失败，请稍后重试。");
                 });
-                // ==================== 修改区域 END ======================
             }
         }
     </script>
