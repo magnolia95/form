@@ -24,7 +24,7 @@
     </style>
 </head>
 <body>
-    <h1>预输入规则设置 (云同步版)</h1>
+    <h1>预输入规则设置 (云同步版) - <span id="script-version" style="color: #999;"></span></h1>
 
     <div class="container">
         <h2>从 Excel 批量导入</h2>
@@ -62,7 +62,7 @@ chen	CCTV	USA"></textarea>
     <div id="rulesList"><div class="loader">正在从云端加载规则...</div></div>
 
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxVo5uAsDT9rGsKmMIetlJcBjYR1HnMIZcwBCsxH9Y2UO4-F82EhfdRMB9FipbrT0mT/exec";
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec";
 
         function setLoading(isLoading) {
             document.getElementById('importBtn').disabled = isLoading;
@@ -71,124 +71,67 @@ chen	CCTV	USA"></textarea>
             deleteButtons.forEach(btn => btn.disabled = isLoading);
         }
 
-        // 批量导入规则
+        function importRules() { /* ... function is unchanged ... */ }
+        function saveRule() { /* ... function is unchanged ... */ }
+        function deleteRule(triggerNameToDelete) { /* ... function is unchanged ... */ }
+        
+        // --- THIS PART IS THE SAME AS THE PREVIOUS VERSION, COPY IT IN ---
         function importRules() {
             const bulkText = document.getElementById('bulkData').value.trim();
-            if (!bulkText) {
-                alert('请粘贴要导入的数据。');
-                return;
-            }
-
+            if (!bulkText) { alert('请粘贴要导入的数据。'); return; }
             const lines = bulkText.split('\n');
             const newRules = lines.map(line => {
                 const columns = line.split('\t');
                 if (columns.length === 3) {
                     const [triggerName, media, country] = columns.map(item => item.trim());
-                    if (triggerName && media && country) {
-                        return { triggerName, media, country };
-                    }
+                    if (triggerName && media && country) { return { triggerName, media, country }; }
                 }
                 return null;
             }).filter(Boolean);
-
-            if (newRules.length === 0) {
-                alert('未能解析任何有效规则。请确保格式正确（三列，以Tab分隔）。');
-                return;
-            }
-
+            if (newRules.length === 0) { alert('未能解析任何有效规则。请确保格式正确（三列，以Tab分隔）。'); return; }
             const importMode = document.querySelector('input[name="importMode"]:checked').value;
-            
             setLoading(true);
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'importRules', mode: importMode, data: newRules })
-            })
-            .then(() => {
-                alert(`成功提交 ${newRules.length} 条规则进行处理！`);
-                document.getElementById('bulkData').value = '';
-                setTimeout(loadRules, 1000); // Give server a moment to process
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("导入失败，请稍后重试。");
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'importRules', mode: importMode, data: newRules }) })
+            .then(() => { alert(`成功提交 ${newRules.length} 条规则进行处理！`); document.getElementById('bulkData').value = ''; setTimeout(loadRules, 1000); })
+            .catch(error => { console.error('Error:', error); alert("导入失败，请稍后重试。"); })
+            .finally(() => { setLoading(false); });
         }
-
-        // 保存单条规则
         function saveRule() {
             const triggerName = document.getElementById('triggerName').value.trim();
             const media = document.getElementById('mediaOrg').value.trim();
             const country = document.getElementById('countryRegion').value.trim();
-
-            if (!triggerName || !media || !country) {
-                alert('所有字段均为必填项。');
-                return;
-            }
-
+            if (!triggerName || !media || !country) { alert('所有字段均为必填项。'); return; }
             const ruleData = { triggerName, media, country };
-            
             setLoading(true);
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'saveRule', data: ruleData })
-            })
-            .then(() => {
-                 document.getElementById('triggerName').value = '';
-                document.getElementById('mediaOrg').value = '';
-                document.getElementById('countryRegion').value = '';
-                setTimeout(loadRules, 1000); // Give server a moment to process
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("保存失败，请稍后重试。");
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'saveRule', data: ruleData }) })
+            .then(() => { document.getElementById('triggerName').value = ''; document.getElementById('mediaOrg').value = ''; document.getElementById('countryRegion').value = ''; setTimeout(loadRules, 1000); })
+            .catch(error => { console.error('Error:', error); alert("保存失败，请稍后重试。"); })
+            .finally(() => { setLoading(false); });
         }
-
-        // 删除规则
         function deleteRule(triggerNameToDelete) {
             if (confirm(`确定要删除 "${triggerNameToDelete}" 这条规则吗？`)) {
                 setLoading(true);
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'deleteRule', triggerName: triggerNameToDelete })
-                })
-                .then(() => {
-                    setTimeout(loadRules, 1000); // Give server a moment to process
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert("删除失败，请稍后重试。");
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
+                fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteRule', triggerName: triggerNameToDelete }) })
+                .then(() => { setTimeout(loadRules, 1000); })
+                .catch(error => { console.error('Error:', error); alert("删除失败，请稍后重试。"); })
+                .finally(() => { setLoading(false); });
             }
         }
+        // --- END OF UNCHANGED PART ---
 
-        // 加载并显示规则
         function loadRules() {
             const rulesListDiv = document.getElementById('rulesList');
             rulesListDiv.innerHTML = '<div class="loader">正在从云端加载规则...</div>';
             
             fetch(SCRIPT_URL + '?action=getRules')
                 .then(response => response.json())
-                .then(rules => {
-                    if (!rules || rules.length === 0) {
+                .then(data => {
+                    // MODIFIED PART: Check for version and get rules from the correct place
+                    const version = data.version || "未知 (旧版)";
+                    const rules = data.rules || []; 
+                    document.getElementById('script-version').textContent = `v${version}`;
+
+                    if (rules.length === 0) {
                         rulesListDiv.innerHTML = '<p>云端尚未设置任何规则。</p>';
                         return;
                     }
@@ -217,11 +160,10 @@ chen	CCTV	USA"></textarea>
                 })
                 .catch(error => {
                     console.error("加载规则失败:", error);
-                    rulesListDiv.innerHTML = "<p>加载规则失败，请检查脚本URL或网络连接，并确保已正确部署最新脚本。</p>";
+                    rulesListDiv.innerHTML = "<p>加载规则失败！请检查浏览器控制台 (F12) 的错误信息，并确认已部署 v2.0 脚本。</p>";
                 });
         }
         
-        // 页面加载时显示已有规则
         window.onload = loadRules;
     </script>
 </body>
