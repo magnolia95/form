@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>预输入规则设置 (云同步版)</title>
+    <title>预输入规则设置</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; }
         h1, h2 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
@@ -13,18 +13,16 @@
         .form-group input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
         button:hover { background-color: #45a049; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
         textarea { width: 100%; min-height: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         #rulesList table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         #rulesList th, #rulesList td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         #rulesList .delete-btn { background-color: #f44336; padding: 5px 10px; font-size: 14px; }
         #rulesList .delete-btn:hover { background-color: #da190b; }
         .import-options { margin: 10px 0; }
-        .loader { text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
-    <h1>预输入规则设置 (云同步版)</h1>
+    <h1>预输入规则设置</h1>
 
     <div class="container">
         <h2>从 Excel 批量导入</h2>
@@ -39,7 +37,7 @@ chen	CCTV	USA"></textarea>
             <input type="radio" id="append" name="importMode" value="append" style="margin-left: 20px;">
             <label for="append">添加到现有规则之后</label>
         </div>
-        <button id="importBtn" onclick="importRules()">导入规则</button>
+        <button onclick="importRules()">导入规则</button>
     </div>
     <div class="container">
         <h2>手动添加单条规则</h2>
@@ -55,21 +53,14 @@ chen	CCTV	USA"></textarea>
             <label for="countryRegion">自动填充国家/地区:</label>
             <input type="text" id="countryRegion" placeholder="例如: China">
         </div>
-        <button id="saveBtn" onclick="saveRule()">保存单条规则</button>
+        <button onclick="saveRule()">保存单条规则</button>
     </div>
 
     <h2>当前规则列表</h2>
-    <div id="rulesList"><div class="loader">正在从云端加载规则...</div></div>
+    <div id="rulesList"></div>
 
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec";
-
-        function setLoading(isLoading) {
-            document.getElementById('importBtn').disabled = isLoading;
-            document.getElementById('saveBtn').disabled = isLoading;
-            const deleteButtons = document.querySelectorAll('.delete-btn');
-            deleteButtons.forEach(btn => btn.disabled = isLoading);
-        }
+        const rulesKey = 'prefillRules';
 
         // 批量导入规则
         function importRules() {
@@ -80,44 +71,43 @@ chen	CCTV	USA"></textarea>
             }
 
             const lines = bulkText.split('\n');
-            const newRules = lines.map(line => {
-                const columns = line.split('\t');
+            const newRules = [];
+            let importedCount = 0;
+
+            lines.forEach(line => {
+                const columns = line.split('\t'); // Excel复制的内容默认以制表符分隔
                 if (columns.length === 3) {
                     const [triggerName, media, country] = columns.map(item => item.trim());
                     if (triggerName && media && country) {
-                        return { triggerName, media, country };
+                        newRules.push({ triggerName, media, country });
+                        importedCount++;
                     }
                 }
-                return null;
-            }).filter(Boolean);
+            });
 
-            if (newRules.length === 0) {
+            if (importedCount === 0) {
                 alert('未能解析任何有效规则。请确保格式正确（三列，以Tab分隔）。');
                 return;
             }
 
             const importMode = document.querySelector('input[name="importMode"]:checked').value;
+            let finalRules = [];
+
+            if (importMode === 'append') {
+                finalRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+            }
             
-            setLoading(true);
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'importRules', mode: importMode, data: newRules })
-            })
-            .then(() => {
-                alert(`成功提交 ${newRules.length} 条规则进行处理！`);
-                document.getElementById('bulkData').value = '';
-                setTimeout(loadRules, 1000); // Give server a moment to process
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("导入失败，请稍后重试。");
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            // 合并并去重，以新导入的为准
+            const ruleMap = new Map();
+            finalRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
+            newRules.forEach(rule => ruleMap.set(rule.triggerName.toLowerCase(), rule));
+            
+            finalRules = Array.from(ruleMap.values());
+
+            localStorage.setItem(rulesKey, JSON.stringify(finalRules));
+            alert(`成功导入/更新了 ${importedCount} 条规则！`);
+            document.getElementById('bulkData').value = '';
+            loadRules();
         }
 
         // 保存单条规则
@@ -131,94 +121,64 @@ chen	CCTV	USA"></textarea>
                 return;
             }
 
-            const ruleData = { triggerName, media, country };
+            let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+            const existingRuleIndex = rules.findIndex(rule => rule.triggerName.toLowerCase() === triggerName.toLowerCase());
             
-            setLoading(true);
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'saveRule', data: ruleData })
-            })
-            .then(() => {
-                 document.getElementById('triggerName').value = '';
-                document.getElementById('mediaOrg').value = '';
-                document.getElementById('countryRegion').value = '';
-                setTimeout(loadRules, 1000); // Give server a moment to process
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("保存失败，请稍后重试。");
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            if (existingRuleIndex > -1) {
+                rules[existingRuleIndex] = { triggerName, media, country };
+            } else {
+                rules.push({ triggerName, media, country });
+            }
+
+            localStorage.setItem(rulesKey, JSON.stringify(rules));
+            
+            document.getElementById('triggerName').value = '';
+            document.getElementById('mediaOrg').value = '';
+            document.getElementById('countryRegion').value = '';
+            loadRules();
         }
 
         // 删除规则
-        function deleteRule(triggerNameToDelete) {
-            if (confirm(`确定要删除 "${triggerNameToDelete}" 这条规则吗？`)) {
-                setLoading(true);
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'deleteRule', triggerName: triggerNameToDelete })
-                })
-                .then(() => {
-                    setTimeout(loadRules, 1000); // Give server a moment to process
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert("删除失败，请稍后重试。");
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
+        function deleteRule(index) {
+            if (confirm('确定要删除这条规则吗？')) {
+                let rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+                rules.splice(index, 1);
+                localStorage.setItem(rulesKey, JSON.stringify(rules));
+                loadRules();
             }
         }
 
         // 加载并显示规则
         function loadRules() {
             const rulesListDiv = document.getElementById('rulesList');
-            rulesListDiv.innerHTML = '<div class="loader">正在从云端加载规则...</div>';
+            const rules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+
+            if (rules.length === 0) {
+                rulesListDiv.innerHTML = '<p>尚未设置任何规则。</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <tr>
+                        <th>姓名 (触发词)</th>
+                        <th>媒体机构</th>
+                        <th>国家/地区</th>
+                        <th>操作</th>
+                    </tr>`;
             
-            fetch(SCRIPT_URL + '?action=getRules')
-                .then(response => response.json())
-                .then(rules => {
-                    if (!rules || rules.length === 0) {
-                        rulesListDiv.innerHTML = '<p>云端尚未设置任何规则。</p>';
-                        return;
-                    }
+            rules.forEach((rule, index) => {
+                tableHTML += `
+                    <tr>
+                        <td>${rule.triggerName}</td>
+                        <td>${rule.media}</td>
+                        <td>${rule.country}</td>
+                        <td><button class="delete-btn" onclick="deleteRule(${index})">删除</button></td>
+                    </tr>`;
+            });
 
-                    let tableHTML = `
-                        <table>
-                            <tr>
-                                <th>姓名 (触发词)</th>
-                                <th>媒体机构</th>
-                                <th>国家/地区</th>
-                                <th>操作</th>
-                            </tr>`;
-                    
-                    rules.forEach(rule => {
-                        tableHTML += `
-                            <tr>
-                                <td>${rule.triggerName}</td>
-                                <td>${rule.media}</td>
-                                <td>${rule.country}</td>
-                                <td><button class="delete-btn" onclick="deleteRule('${rule.triggerName}')">删除</button></td>
-                            </tr>`;
-                    });
-
-                    tableHTML += '</table>';
-                    rulesListDiv.innerHTML = tableHTML;
-                })
-                .catch(error => {
-                    console.error("加载规则失败:", error);
-                    rulesListDiv.innerHTML = "<p>加载规则失败，请检查脚本URL或网络连接，并确保已正确部署最新脚本。</p>";
-                });
+            tableHTML += '</table>';
+            rulesListDiv.innerHTML = tableHTML;
         }
         
         // 页面加载时显示已有规则
