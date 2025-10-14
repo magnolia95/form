@@ -44,9 +44,9 @@
     </div>
     
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec"; 
-        
-        // --- MODIFICATION 1: Updated translation strings ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxVo5uAsDT9rGsKmMIetlJcBjYR1HnMIZcwBCsxH9Y2UO4-F82EhfdRMB9FipbrT0mT/exec"; 
+        let prefillRules = []; // Will be populated from the cloud
+
         const translations = {
             cn: { 
                 formTitle: "媒体嘉宾签到表", nameLabel: "姓名", emailLabel: "电子邮箱", phoneLabel: "电话号码", mediaLabel: "所属媒体机构", countryLabel: "国家/地区", interestsLabel: "感兴趣的报道领域", submitBtn: "提交信息", 
@@ -58,13 +58,11 @@
             }
         };
         
-        // --- MODIFICATION 2: Updated changeLanguage function ---
         function changeLanguage(lang) {
             const currentLang = translations[lang];
             Object.keys(currentLang).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
-                    // Use innerHTML for messages that contain HTML tags like the countdown span
                     if (key === 'thankYouMessage') {
                         element.innerHTML = currentLang[key];
                     } else {
@@ -74,7 +72,6 @@
             });
         }
         
-        // --- MODIFICATION 3: Updated submit event listener ---
         document.getElementById("contactForm").addEventListener("submit", function(event) {
             event.preventDefault();
             
@@ -106,24 +103,22 @@
                 successMessage.style.display = "block";
                 form.reset();
 
-                // Countdown Logic
                 let secondsLeft = 5;
                 const countdownSpan = document.getElementById('countdown');
-                countdownSpan.textContent = secondsLeft; // Set initial value
+                if (countdownSpan) countdownSpan.textContent = secondsLeft;
 
                 const countdownInterval = setInterval(() => {
                     secondsLeft--;
-                    countdownSpan.textContent = secondsLeft;
+                    if (countdownSpan) countdownSpan.textContent = secondsLeft;
                     if (secondsLeft <= 0) {
                         clearInterval(countdownInterval);
                     }
                 }, 1000);
 
-                // After 5 seconds, hide the message and show the form
                 setTimeout(() => {
                     successMessage.style.display = "none";
                     form.style.display = "block";
-                }, 8000); // Changed to 8 seconds
+                }, 5000); // Corrected to 5 seconds
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -136,14 +131,10 @@
             });
         });
 
-        // ==================== (No changes below this line) ====================
         const nameInput = document.getElementById('name');
         const mediaInput = document.getElementById('media');
         const countryInput = document.getElementById('country');
         const suggestionsDatalist = document.getElementById('name-suggestions');
-        const rulesKey = 'prefillRules';
-        
-        const prefillRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
 
         nameInput.addEventListener('input', function() {
             const currentName = this.value.toLowerCase().trim();
@@ -176,8 +167,22 @@
             }
         });
 
+        // Load rules from cloud on page load
+        function loadPrefillRules() {
+            fetch(SCRIPT_URL + '?action=getRules')
+                .then(response => response.json())
+                .then(data => {
+                    prefillRules = data;
+                    console.log('Prefill rules loaded from cloud:', prefillRules.length);
+                })
+                .catch(error => {
+                    console.error("Failed to load prefill rules:", error);
+                });
+        }
+        
         window.onload = function() {
             changeLanguage('en');
+            loadPrefillRules();
         };
     </script>
 </body>
