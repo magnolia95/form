@@ -61,4 +61,124 @@
         // --- MODIFICATION 2: Updated changeLanguage function ---
         function changeLanguage(lang) {
             const currentLang = translations[lang];
-            Object.keys
+            Object.keys(currentLang).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    // Use innerHTML for messages that contain HTML tags like the countdown span
+                    if (key === 'thankYouMessage') {
+                        element.innerHTML = currentLang[key];
+                    } else {
+                        element.textContent = currentLang[key];
+                    }
+                }
+            });
+        }
+        
+        // --- MODIFICATION 3: Updated submit event listener ---
+        document.getElementById("contactForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById("submitBtn");
+            const form = document.getElementById("contactForm");
+            const successMessage = document.getElementById("successMessage");
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Submitting...";
+
+            const formData = {
+                name: document.getElementById("name").value,
+                email: document.getElementById("email").value,
+                phone: document.getElementById("phone").value,
+                media: document.getElementById("media").value,
+                country: document.getElementById("country").value,
+                interests: document.getElementById("interests").value,
+            };
+            
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                form.style.display = "none";
+                successMessage.style.display = "block";
+                form.reset();
+
+                // Countdown Logic
+                let secondsLeft = 5;
+                const countdownSpan = document.getElementById('countdown');
+                countdownSpan.textContent = secondsLeft; // Set initial value
+
+                const countdownInterval = setInterval(() => {
+                    secondsLeft--;
+                    countdownSpan.textContent = secondsLeft;
+                    if (secondsLeft <= 0) {
+                        clearInterval(countdownInterval);
+                    }
+                }, 1000);
+
+                // After 5 seconds, hide the message and show the form
+                setTimeout(() => {
+                    successMessage.style.display = "none";
+                    form.style.display = "block";
+                }, 8000); // Changed to 8 seconds
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("Submission failed. Please try again later.");
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                const currentLangIsCn = document.getElementById("formTitle").textContent === "媒体嘉宾签到表";
+                changeLanguage(currentLangIsCn ? 'cn' : 'en');
+            });
+        });
+
+        // ==================== (No changes below this line) ====================
+        const nameInput = document.getElementById('name');
+        const mediaInput = document.getElementById('media');
+        const countryInput = document.getElementById('country');
+        const suggestionsDatalist = document.getElementById('name-suggestions');
+        const rulesKey = 'prefillRules';
+        
+        const prefillRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
+
+        nameInput.addEventListener('input', function() {
+            const currentName = this.value.toLowerCase().trim();
+            
+            suggestionsDatalist.innerHTML = '';
+            mediaInput.value = '';
+            countryInput.value = '';
+
+            if (currentName.length === 0) {
+                return;
+            }
+
+            const matchingRules = prefillRules.filter(rule => 
+                rule.triggerName.toLowerCase().includes(currentName)
+            );
+
+            matchingRules.forEach(rule => {
+                const option = document.createElement('option');
+                option.value = rule.triggerName;
+                suggestionsDatalist.appendChild(option);
+            });
+
+            const exactMatchRule = prefillRules.find(rule => 
+                rule.triggerName.toLowerCase() === currentName
+            );
+
+            if (exactMatchRule) {
+                mediaInput.value = exactMatchRule.media;
+                countryInput.value = exactMatchRule.country;
+            }
+        });
+
+        window.onload = function() {
+            changeLanguage('en');
+        };
+    </script>
+</body>
+</html>
