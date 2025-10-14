@@ -12,7 +12,7 @@
         button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         button:hover { background-color: #45a049; }
         button:disabled { background-color: #cccccc; }
-        .success-message { display: none; background-color: #dff0d8; color: #3c763d; padding: 15px; margin-top: 20px; border-radius: 4px; }
+        .success-message { display: none; background-color: #dff0d8; color: #3c763d; padding: 15px; margin-top: 20px; border-radius: 4px; text-align: center; }
         .language-selector { text-align: right; margin-bottom: 20px; }
         h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
     </style>
@@ -40,124 +40,25 @@
     </form>
     
     <div class="success-message" id="successMessage">
-        <p id="thankYouMessage">Thank you for submitting your information! We will contact you soon.</p>
+        <p id="thankYouMessage"></p>
     </div>
     
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNCZUg5wtiWdlrd0AqnJgJtEo9YdtVPmqxhvITsWmNDwaSO4Qc0NXE-YHIyf-8HFIr/exec"; 
+        
+        // --- MODIFICATION 1: Updated translation strings ---
         const translations = {
-            cn: { formTitle: "媒体嘉宾签到表", nameLabel: "姓名", emailLabel: "电子邮箱", phoneLabel: "电话号码", mediaLabel: "所属媒体机构", countryLabel: "国家/地区", interestsLabel: "感兴趣的报道领域", submitBtn: "提交信息", thankYouMessage: "感谢您提交信息！我们将尽快与您联系。" },
-            en: { formTitle: "Media Guest Check-in Form", nameLabel: "Name", emailLabel: "Email", phoneLabel: "Phone Number", mediaLabel: "Media Organization", countryLabel: "Country/Region", interestsLabel: "Areas of Interest", submitBtn: "Submit Information", thankYouMessage: "Thank you for submitting your information! We will contact you soon." }
+            cn: { 
+                formTitle: "媒体嘉宾签到表", nameLabel: "姓名", emailLabel: "电子邮箱", phoneLabel: "电话号码", mediaLabel: "所属媒体机构", countryLabel: "国家/地区", interestsLabel: "感兴趣的报道领域", submitBtn: "提交信息", 
+                thankYouMessage: "感谢您提交信息！页面将在 <span id='countdown' style='font-weight:bold;'>5</span> 秒后自动返回。" 
+            },
+            en: { 
+                formTitle: "Media Guest Check-in Form", nameLabel: "Name", emailLabel: "Email", phoneLabel: "Phone Number", mediaLabel: "Media Organization", countryLabel: "Country/Region", interestsLabel: "Areas of Interest", submitBtn: "Submit Information", 
+                thankYouMessage: "Thank you for submitting! Returning in <span id='countdown' style='font-weight:bold;'>5</span> seconds..." 
+            }
         };
         
+        // --- MODIFICATION 2: Updated changeLanguage function ---
         function changeLanguage(lang) {
-            Object.keys(translations[lang]).forEach(key => {
-                const element = document.getElementById(key);
-                if (element) element.textContent = translations[lang][key];
-            });
-        }
-        
-        document.getElementById("contactForm").addEventListener("submit", function(event) {
-            event.preventDefault();
-            
-            const submitBtn = document.getElementById("submitBtn");
-            const form = document.getElementById("contactForm");
-            const successMessage = document.getElementById("successMessage");
-            
-            submitBtn.disabled = true;
-            submitBtn.textContent = "Submitting...";
-
-            const formData = {
-                name: document.getElementById("name").value,
-                email: document.getElementById("email").value,
-                phone: document.getElementById("phone").value,
-                media: document.getElementById("media").value,
-                country: document.getElementById("country").value,
-                interests: document.getElementById("interests").value,
-            };
-            
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            })
-            .then(response => {
-                // 核心改动：隐藏表单，仅显示成功信息
-                form.style.display = "none";
-                successMessage.style.display = "block";
-                
-                // 在后台重置表单内容
-                form.reset();
-
-                // 3秒后，隐藏成功信息，并重新显示空白的表单
-                setTimeout(() => {
-                    successMessage.style.display = "none";
-                    form.style.display = "block";
-                }, 3000);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("Submission failed. Please try again later.");
-            })
-            .finally(() => {
-                // 无论成功失败，最终都恢复提交按钮的状态
-                submitBtn.disabled = false;
-                const currentLangIsCn = document.getElementById("formTitle").textContent === "媒体嘉宾签到表";
-                changeLanguage(currentLangIsCn ? 'cn' : 'en');
-            });
-        });
-
-        // ==================== 最终版：带建议列表的填充逻辑 START ====================
-        const nameInput = document.getElementById('name');
-        const mediaInput = document.getElementById('media');
-        const countryInput = document.getElementById('country');
-        const suggestionsDatalist = document.getElementById('name-suggestions');
-        const rulesKey = 'prefillRules';
-        
-        const prefillRules = JSON.parse(localStorage.getItem(rulesKey)) || [];
-
-        nameInput.addEventListener('input', function() {
-            const currentName = this.value.toLowerCase().trim();
-            
-            // 每次输入都先清空旧的建议和填充
-            suggestionsDatalist.innerHTML = '';
-            mediaInput.value = '';
-            countryInput.value = '';
-
-            if (currentName.length === 0) {
-                return; // 如果输入框为空，则不进行任何操作
-            }
-
-            // 步骤1: 查找所有部分匹配的规则，生成建议列表
-            const matchingRules = prefillRules.filter(rule => 
-                rule.triggerName.toLowerCase().includes(currentName)
-            );
-
-            matchingRules.forEach(rule => {
-                const option = document.createElement('option');
-                option.value = rule.triggerName;
-                suggestionsDatalist.appendChild(option);
-            });
-
-            // 步骤2: 检查是否存在一个精确匹配的规则（通常在用户从建议列表中选择后发生）
-            const exactMatchRule = prefillRules.find(rule => 
-                rule.triggerName.toLowerCase() === currentName
-            );
-
-            if (exactMatchRule) {
-                // 如果有精确匹配，则填充表单
-                mediaInput.value = exactMatchRule.media;
-                countryInput.value = exactMatchRule.country;
-            }
-        });
-        // ==================== 最终版：带建议列表的填充逻辑 END ======================
-
-        // 页面加载后默认设置为英文
-        window.onload = function() {
-            changeLanguage('en');
-        };
-    </script>
-</body>
-</html>
+            const currentLang = translations[lang];
+            Object.keys
